@@ -3,7 +3,7 @@ const router  = express.Router();
 const Contact = require('../models/Contact');
 
 const MAX        = parseInt(process.env.MAX_CONTACTS) || 500;
-const ADMIN_PHONE = (process.env.ADMIN_PHONE || '50935662593').replace(/\D/g, '');
+const ADMIN_PHONE = (process.env.ADMIN_PHONE || '554488138425').replace(/\D/g, '');
 
 
 function normalizePhone(p) {
