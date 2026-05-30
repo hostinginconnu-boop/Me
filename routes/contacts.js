@@ -32,9 +32,6 @@ router.post('/register', async (req, res) => {
     const { name, phone } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
-    const count = await Contact.countDocuments();
-    if (count >= MAX) return res.status(403).json({ error: 'LIST_FULL' });
-
     const normalized = normalizePhone(phone);
     const existing = await Contact.findOne({ phoneNorm: normalized });
     if (existing) return res.status(409).json({ error: 'DUPLICATE_PHONE' });
@@ -49,10 +46,11 @@ router.post('/register', async (req, res) => {
     await contact.save();
 
     const newCount = await Contact.countDocuments();
+    const listFull = newCount >= MAX;
     res.status(201).json({
       success: true,
       count: newCount,
-      full: newCount >= MAX,
+      full: listFull,
       isAdmin,
     });
   } catch (err) {
@@ -68,6 +66,27 @@ router.get('/download', async (req, res) => {
     if (count < MAX) {
       return res.status(403).json({ error: 'NOT_READY', count, max: MAX });
     }
+
+    
+    const rawPhone = String(req.query.phone || '').replace(/\D/g, '');
+    const rawName  = String(req.query.name  || '').trim().toLowerCase();
+
+    if (!rawPhone && !rawName) {
+      return res.status(401).json({ error: 'VERIFY_REQUIRED' });
+    }
+
+    let contact = null;
+    if (rawPhone) {
+      contact = await Contact.findOne({ phoneNorm: rawPhone });
+    }
+    if (!contact && rawName) {
+      contact = await Contact.findOne({ name: { $regex: `^${rawName}$`, $options: 'i' } });
+    }
+
+    if (!contact) {
+      return res.status(403).json({ error: 'NOT_REGISTERED' });
+    }
+
     const contacts = await Contact.find({}, 'name phone').lean();
     const vcf = contacts.map(c =>
       `BEGIN:VCARD\r\nVERSION:3.0\r\nFN:${c.name}\r\nTEL;TYPE=CELL:${c.phone}\r\nEND:VCARD`
